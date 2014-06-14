@@ -199,8 +199,10 @@ namespace pass1 {
 					else if(wn){
 						// solve the ,x problem
 						if(line[i]==44)
-							if(line[i+1]==88 && line[i+2]<33)
+							if(line[i+1]==88 && line[i+2]<33){
+								wn+=2;
 								i+=2;
+							}
 						line[i]=0;
 
 						// mode > 1, this word should be an operand
@@ -269,14 +271,7 @@ namespace pass1 {
 					symtable.pop_front();
 					symtable.push_back(symNameTmp);
 				}
-				// while(!symtable.empty()){
-				// 	symNameTmp=symtable.front();
-				// 	symtable.pop_front();
-				// }
 				fprintf(im_file, "...=== SIZE : %X ===\n",addr );
-
-				// printf("dumping hash table\n");
-				// table.dump();
 
 				src_file.close();
 				fclose(im_file);
@@ -350,7 +345,7 @@ namespace pass1 {
 		if(s!=-1){
 			int addraddTmp;
 			if((*(line+s))=='C')
-				addraddTmp=(strlen((char*)(line+s))-3);
+				addraddTmp=(strlen((char*)(line+s))-3)*n;
 			else if((*(line+s))=='X')
 				addraddTmp=(strlen((char*)(line+s))-2)>>1;
 			else
@@ -379,13 +374,41 @@ namespace pass1 {
 // namespace pass2 ===================================
 namespace pass2 {
 
+	/**
+	 * int addr: current line address
+	 * int mode:
+	 *
+	 *  -1: not started
+	 *   0: ready mode
+	 *   1: processing format 1
+	 *   2: processing format 2
+	 *   3: processing format 3
+	 *   4: processing format 4
+	 *   5: 
+	 */
 	int addr,mode;
 
 	fstream im_file;
 	FILE* des_file;
 
-	void addToT(char*);
+	/**
+	 * import
+	 * import optable and directives to the table and initualize for pass2
+	 */
 	void import();
+
+	/**
+	 * add record to T
+	 * if too much record,will call newT to create new one
+	 * @param str: code to add
+	 */
+	void addToT(char*);
+
+	/**
+	 * new T record
+	 * @param NotFirst: if this is the first,dont pop
+	 */
+	void newT(bool);
 
 	//OP code Table
 	struct OpTable
@@ -454,6 +477,8 @@ namespace pass2 {
 		"WD",0xDC,3
 	};
 
+	char hexoutput_format[][5]={"%02X","%04X","%06X"};
+
 	/**
 	 * Symbol Handlers
 	 * handler functions (char* (*)(int)) for processing all kinds of symbols
@@ -470,85 +495,73 @@ namespace pass2 {
 
 	void main(char* intermediate_file_name,char* obj_file_name){
 
-		// while(!pass1::T_len.empty()){
-		// 	printf(">> %X ",*(pass1::T_len.front()) );
-		// 	pass1::T_len.pop_front();
-		// }
-		// cout << endl;
-
-		// while(!pass1::symtable.empty()){
-		// 	printf("%s ",pass1::symtable.front().c_str());
-		// 	pass1::symtable.pop_front();
-		// }
-
-		// cout << endl;
-
-		// cout << "Start label:" << pass1::startLab << endl;
-		
-		// return;
-
 		// get assembler prepared...
 		import();
 
-
+		// for debugging
+		//table.dump();
 
 		// prepare file IO
-		
 		im_file.open(intermediate_file_name, ios::in);
 		des_file=fopen(obj_file_name,"w");
 
+		/**
+		 * char line[256]: current line char array
+		 * int ln: line number
+		 * int i: current char
+		 * int wc: word counter in current line
+		 * int ws: last word start location
+		 * int hash: calculate the hash value
+		 * int tmpInt: tmp variable for converting src to obj
+		 * char tmpChar: tmp variable for converting src to obj
+		 * bool neol: not end of line
+		 */
 		char line[256];
-		int ln=1,ws,i,wc,wn,hash,tmpInt;
+		int ln=1,ws,i,wc,hash,tmpInt;
 		char tmpChar[10];
 		bool neol;
 		mode=-1;
 		
 		try{
-
-			//printf("====== file output started ======\n");
+			// Write Head record
 			fprintf(des_file,"H%-6s%06X%06X",pass1::startLab.c_str(),pass1::start_addr,pass1::addr);
+
 			while(!im_file.eof()){
 				im_file.getline(line, 256);
-				//printf("\n%3d | %s",ln,line);
 
-				ws=0; // word start
-				wc=0; // word cnt
+				ws=0;
+				wc=0;
 				i=0;
 				hash=0;
 				neol=true;
 				while(neol){
-					//printf("[%c:%d]",line[i],line[i] );
-
 					if(line[i]==46)
 						break;
 					else if(line[i]<32){
-						//printf("{%d}",line[i] );
 						neol=!!line[i];
 						line[i]=0;
 
-						//printf("[%s]",(char*)(line+ws));
-
 						switch(wc++){
-							case 0:
+							case 0: // first word: address
 								sscanf((char*)(line+ws),"%x",&addr);
 								break;
-							case 1:
+							case 1: // second word: label,but useless in pass2
 								break;
-							case 2:
-								// printf("{%d}{%d}\n", hash, myHash(string((char*)(line+ws))));
-								// getchar();
+							case 2: // third word: op or dir
 								addToT((char*)table.call((char*)(line+ws),hash,0).c_str());
 								break;
-							default:
+							default: // the rest word: operand
 								switch(mode){
-									case 1:
+									case 1: // no operand in format 1
 										break;
-									case 2:
+									case 2: // dont know what to do in format 2
 										break;
-									case 3:
-										if(line[i-1]=='X' && line[i-2]==','){
-											addToT((char*)"9039");
-											//throw "DONT KNOW HOW TO Process indexed address...";
+									case 3: // format 3, convert label name to address
+										if(line[i-1]=='X' && line[i-2]==','){ // if ended with ,X
+											line[i-2]=0;
+											sscanf((char*)table.call((char*)(line+ws),0).c_str(),"%X",&tmpInt);
+											sprintf(tmpChar,hexoutput_format[1],tmpInt+0x8000);
+											addToT(tmpChar);
 										}
 										else{
 											tmpInt=mode;
@@ -558,9 +571,10 @@ namespace pass2 {
 										}
 										mode=0;
 										break;
-									case 4:
+									case 4: // dont know what to do in format 4
 										break;
-									case 5:
+									case 5: // BYTE directive
+									case 6: // WORD directive
 										if(line[ws]=='X' && line[i-1]=='\'' && line[ws+1]=='\''){
 											line[i-1]=0;
 											addToT((char*)(line+ws+2));
@@ -569,17 +583,16 @@ namespace pass2 {
 											line[i-1]=0;
 											tmpInt=i-ws-3;
 											for (int k = 0; k < tmpInt; ++k){
-												sprintf((char*)(tmpChar+k*2),"%02X",*(line+ws+2+k));
+												sprintf((char*)(tmpChar+k*2),hexoutput_format[(mode-5)*2],*(line+ws+2+k));
 												*(tmpChar+k*2+2)=0;
 											}
-											//printf("::%s::\n",tmpChar );
 											addToT(tmpChar);
 										}
-										break;
-									case 6:
-										sscanf((char*)(line+ws),"%d",&tmpInt);
-										sprintf(tmpChar,"%06X",tmpInt);
-										addToT(tmpChar);
+										else{
+											sscanf((char*)(line+ws),"%d",&tmpInt);
+											sprintf(tmpChar,hexoutput_format[(mode-5)*2],tmpInt);
+											addToT(tmpChar);
+										}
 										break;
 									default:
 										break;
@@ -596,7 +609,7 @@ namespace pass2 {
 					i++;
 
 				}
-				if(mode==3){
+				if(mode==3){ // if no operand got in format 3
 					addToT((char*)"0000");
 					mode=0;
 				}
@@ -606,7 +619,6 @@ namespace pass2 {
 		}catch(char const* e){
 			if(!(string(e).compare("ended"))){ // if is end signal
 				fprintf(des_file,"\nE%06X\n",pass1::start_addr );
-				//printf("====== file output ended ======\n");
 				im_file.close();
 				fclose(des_file);
 			}
@@ -631,20 +643,6 @@ namespace pass2 {
 		table.add("WORD",3,d_word);
 		table.add("RESB",1,d_resx);
 		table.add("RESW",3,d_resx);
-
-
-		// printf("dumping table...\n");
-		// table.dump();
-
-		// printf("START address: %X\n",&d_start );
-		// getchar();
-	}
-
-	void newT(bool NotFirst){
-		if(NotFirst)
-			pass1::T_len.pop_front();
-		fprintf(des_file,"\nT%06X%02X",addr,*(pass1::T_len.front()));
-		addToT((char*)0);
 	}
 
 	void addToT(char* str){
@@ -658,6 +656,13 @@ namespace pass2 {
 			newT(true);
 		fprintf(des_file,"%s",str);
 		tc+=tcAdd;
+	}
+
+	void newT(bool NotFirst){
+		if(NotFirst)
+			pass1::T_len.pop_front();
+		fprintf(des_file,"\nT%06X%02X",addr,*(pass1::T_len.front()));
+		addToT((char*)0);
 	}
 
 	string opHandler(int para,int s){
