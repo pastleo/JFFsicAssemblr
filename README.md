@@ -17,5 +17,6 @@ Just For Fun SIC Assembler
 
  * 然後你就可以來玩玩看
 
-        ./a.out test1.sic [destination_file] [intermediate_file]
+        ./a.out test1.sic [-d] [destination_file] [intermediate_file]
+        // add -d to dump the hash table at the end
 

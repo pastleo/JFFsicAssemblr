@@ -753,9 +753,11 @@ namespace pass2 {
 /**
  * the main function
  * usage:
- *     this_exe [src_file] [output_file] [intermediate_file]
+ *     this_exe [-d] [src_file] [output_file] [intermediate_file]
  *
  * if no src_file name got, will prompt user to enter one.
+ *
+ * option [-d]: dump hash table
  */
 int main(int argc,char* argv[]){
 	try{
