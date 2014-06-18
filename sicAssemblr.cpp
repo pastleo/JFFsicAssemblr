@@ -30,7 +30,16 @@ string hashTableModel_callback(int,int);
 // hash table, see hashTableModel.h for detailed description
 Table table(TABLE_SIZE);
 
-// namespace pass1 ===================================
+/**
+ * pass1
+ * =======================
+ * collect and create intermediate file and symtable
+ * Author: PastLeo
+ * Email: chgu82837@gmail.com
+ *
+ * starting date: 2014/06/5
+ * finishing date: 2014/06/10
+ */
 namespace pass1 {
 	/**
 	 * === GLOBAL variables ===
@@ -156,7 +165,7 @@ namespace pass1 {
 	/**
 	 * main process of pass1
 	 * @param src_file_name
-	 * @param intermediate_file_name 
+	 * @param intermediate_file_name
 	 */
 	void main(char* src_file_name,char* intermediate_file_name){
 
@@ -166,8 +175,15 @@ namespace pass1 {
 		// prepare file IO
 		fstream src_file;
 		src_file.open(src_file_name, ios::in);
+
+		if(src_file.fail())
+			throw "Open source file failed!";
+
 		FILE* im_file=fopen(intermediate_file_name,"w");
-		
+
+		if(!im_file)
+			throw "Fail to open intermediate file!";
+
 		/**
 		 * string symTmp: Store the last symbol (word)
 		 * char* opTmp: Store the last operation
@@ -177,10 +193,12 @@ namespace pass1 {
 		 * int hashTmp: hashCode saved for the directive
 		 * int paraTmp: store parameter char* location for op or di
 		 * int addrTmp: remember the address of current line
+		 * bool neol: not end of line
 		 */
 		string symTmp;
 		char* opTmp;
 		int ln=1,wn,hash,hashTmp,paraTmp,addrTmp;
+		bool neol;
 		addr=0;
 		try{
 			while(!src_file.eof()){
@@ -193,7 +211,9 @@ namespace pass1 {
 				paraTmp=-2;
 				labTmp="";
 				addrTmp=addr;
-				for(int i=0;line[i];i++){
+				neol=true;
+				for(int i=0;neol;i++){
+					neol=!!line[i];
 					if(line[i]==46)
 						break;
 					else if(line[i]>=33 && line[i]!=44){
@@ -238,8 +258,8 @@ namespace pass1 {
 								mode++;
 							}
 						}
-						
-						// if the last Op or dir got all its parameters 
+
+						// if the last Op or dir got all its parameters
 						if(mode==1){
 							mode=0;
 							table.call(opTmp,hashTmp,paraTmp);
@@ -250,6 +270,7 @@ namespace pass1 {
 							}
 
 							// write to intermediate file
+
 							if(paraTmp==-2)
 								fprintf(im_file,"%X\t%s\t%s\n",(start_addr+addrTmp),labTmp.c_str(),opTmp);
 							else if(paraTmp & 0xFFFF0000){
@@ -300,7 +321,7 @@ namespace pass1 {
 		int length=sizeof(op2addradd)/sizeof(Op2AddrAdd);
 		for (int i = 0; i < length; ++i)
 			table.add(op2addradd[i].name,((op2addradd[i].addradd<<4)+op2addradd[i].NofPara),opHandler);
-		
+
 		table.add("START",0,d_start);
 		table.add("END",0,d_end);
 		table.add("BYTE",1,d_wb);
@@ -382,7 +403,16 @@ namespace pass1 {
 	}
 }
 
-// namespace pass2 ===================================
+/**
+ * pass2
+ * =======================
+ * use intermediate file and symtable to create des(obj) file
+ * Author: PastLeo
+ * Email: chgu82837@gmail.com
+ *
+ * starting date: 2014/06/11
+ * finishing date: 2014/06/18
+ */
 namespace pass2 {
 
 	/**
@@ -395,7 +425,7 @@ namespace pass2 {
 	 *   2: processing format 2
 	 *   3: processing format 3
 	 *   4: processing format 4
-	 *   5: 
+	 *   5:
 	 */
 	int addr,mode;
 
@@ -516,6 +546,13 @@ namespace pass2 {
 		im_file.open(intermediate_file_name, ios::in);
 		des_file=fopen(obj_file_name,"w");
 
+
+		if(im_file.fail())
+			throw "Open intermediate file file failed!";
+
+		if(!des_file)
+			throw "Fail to open des (obj) file!";
+
 		/**
 		 * char line[256]: current line char array
 		 * int ln: line number
@@ -532,7 +569,7 @@ namespace pass2 {
 		char tmpChar[10];
 		bool neol;
 		mode=-1;
-		
+
 		try{
 			// Write Head record
 			fprintf(des_file,"H%-6s%06X%06X",pass1::startLab.c_str(),pass1::start_addr,pass1::addr);
@@ -626,7 +663,7 @@ namespace pass2 {
 				}
 				ln++;
 			}
-			
+
 		}catch(char const* e){
 			if(!(string(e).compare("ended"))){ // if is end signal
 				fprintf(des_file,"\nE%06X\n",pass1::start_addr );
@@ -647,7 +684,7 @@ namespace pass2 {
 		int length=sizeof(optable)/sizeof(OpTable);
 		for (int i = 0; i < length; ++i)
 			table.add(optable[i].name,(optable[i].opcodehex<<4)+optable[i].format,opHandler);
-		
+
 		table.add("START",123,d_start);
 		table.add("END",0,d_end);
 		table.add("BYTE",1,d_byte);
@@ -726,29 +763,38 @@ int main(int argc,char* argv[]){
 
 		char*src_file_name;
 		char*intermediate;
+		int paraIndex=0;
 		src_file_name=new char[50];
-		if(argc <= 1){
+
+		if(argc > 1 && *(argv[1]) == '-')
+			paraIndex++;
+		if(argc <= (1+paraIndex)){
 			printf("Please input the source file name:");
 			scanf("%s",src_file_name);
 		}
 		else
-			src_file_name=argv[1];
+			src_file_name=argv[1+paraIndex];
 
-		if(argc <= 3)
+		if(argc <= (3+paraIndex))
 			intermediate=(char *)"intermediate";
 		else
-			intermediate=argv[3];
+			intermediate=argv[3+paraIndex];
 
 		printf("Pass 1: processing...\n");
 		pass1::main(src_file_name,intermediate);
 		printf("Pass 1: process complete!\n");
 
 		printf("Pass 2: processing...\n");
-		if(argc <= 2)
+		if(argc <= (2+paraIndex))
 			pass2::main(intermediate,(char*)"a.des");
 		else
-			pass2::main(intermediate,argv[2]);
+			pass2::main(intermediate,argv[2+paraIndex]);
 		printf("Pass 2: process complete!\n");
+
+		if(paraIndex){
+			printf("Dumping hash table...\n");
+			table.dump();
+		}
 
 	}catch(char const* e){
 		printf("\nFATAL ERROR:\n\n\t\t%s\n\n",e);
