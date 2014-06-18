@@ -1,4 +1,15 @@
 /**
+ * Sic Assembler
+ * =======================
+ * A simple sic assembler
+ * Author: PastLeo
+ * Email: chgu82837@gmail.com
+ *
+ * starting date: 2014/06/1
+ * finishing date: 2014/06/06
+ */
+
+/**
  * myHash
  * hashCode generator
  * @param  input string

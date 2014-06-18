@@ -1,3 +1,14 @@
+/**
+ * Sic Assembler
+ * =======================
+ * A simple sic assembler
+ * Author: PastLeo
+ * Email: chgu82837@gmail.com
+ *
+ * starting date: 2014/06/1
+ * finishing date: 2014/06/15
+ */
+
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
