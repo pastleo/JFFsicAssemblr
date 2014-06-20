@@ -22,8 +22,9 @@ A simple sic assembler
 
 ## 使用方法
 
-     this_exe [-d] [src_file] [output_file] [intermediate_file]
+     the_exe [-d] [src_file] [output_file] [intermediate_file]
 
+ * the_exe is the execution file, it might be `a.exe` or `a.out`.
  * option [-d]: After all process done,dump hash table.
  * if no src_file name specified, will prompt user to enter one.
  * if no output_file name specified, will use `a.des` as output_file name.
